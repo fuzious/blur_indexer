@@ -8,12 +8,13 @@ export type Lien = {
     amount: string;
     startTime: number;
     rate: string;
-    auctionStartBlock: string;
+    auctionStartBlock: string; // 0 means active , non zero means auction
     auctionDuration: string;
     debt: string;
     ltv: string;
     floorPrice: string;
     apy: string;
+    status: string;
 }
 
 export type LienResponse = {
@@ -23,3 +24,15 @@ export type LienResponse = {
     passiveBalance: string,
     activeBalance: string
 }
+
+export interface TokenInfo {
+    tokenId: string;
+    collectionAddress: string;
+}
+
+export interface NFTData {
+    name: string;
+    tokenURI: string;
+    imageUrl: string;
+}
+

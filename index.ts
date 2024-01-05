@@ -2,14 +2,16 @@ import { BigNumber, ethers } from "ethers";
 import { ETHPriceFeedABI } from "./src/ABI/ETHPriceFeedABI";
 import { RangeProtocolBlurVaultABI } from "./src/ABI/RangeProtocolBlurVaultABI";
 import { TOKEN_TO_PRICE_FEED, RP_VAULT_ADDRESS, BLUR_POOL_ADDRESS } from "./src/constants";
-import { Lien, LienResponse } from "./src/types/interface";
+import { Lien, LienResponse, NFTData, TokenInfo } from "./src/types/interface";
 import fetch from "node-fetch";
 import { ERC20ABI } from "./src/ABI/ERC20";
 import cron from "node-cron";
 import express from "express";
+import { ContractCallResults, Multicall } from "ethereum-multicall";
+import { ERC721 } from "./src/ABI/ERC721";
 
 const app = express();
-const provider = new ethers.providers.JsonRpcProvider('https://eth.llamarpc.com');
+const provider = new ethers.providers.JsonRpcProvider('https://mainnet.infura.io/v3/cc3e9d61dd4348d6956e0da87bef4d9b');
 const rpvault = new ethers.Contract(RP_VAULT_ADDRESS, RangeProtocolBlurVaultABI, provider);
 const blurPool = new ethers.Contract(BLUR_POOL_ADDRESS, ERC20ABI, provider);
 
@@ -98,10 +100,12 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
                     debt: currentDebt.toString(),
                     ltv: ltv.toString(),
                     floorPrice: floorPrice.toString(), // debt/floorPrice*100
-                    apy: apy
+                    apy: apy,
+                    status: Number(lien.auctionStartBlock) == 0 ? "active" : "auction"
                 };
                 return extensibleLien;
             } catch (error) {
+                // console.log(error);
                 // Error handling or logging can be done here
                 throw error;
             }
@@ -150,15 +154,16 @@ async function fetchClosestBlock(timestamp: number): Promise<number> {
 }
 
 
-function scheduledQueryData() {
+
+async function scheduledQueryData() {
     queryData(); // call your existing function
 }
 
 
-// Set up the cron job
-cron.schedule('*/15 * * * * *', () => {
+cron.schedule('*/15 * * * * *', async() => {
     console.log('Running a task every 15 seconds');
-    scheduledQueryData();
+    await scheduledQueryData();
+    console.log(allData);
 });
 
 // Your existing async function queryData() remains the same
