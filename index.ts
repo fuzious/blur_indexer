@@ -136,8 +136,8 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
 
         return {
             ...lien, // Spread existing lien data
-            tokenUri: nftData?.tokenURI ?? '',
-            imageUrl: nftData?.imageUrl ?? '',
+            tokenURI: nftData?.tokenURI ?? '',
+            imageURL: nftData?.imageUrl ?? '',
             name: nftData?.name ?? ''
         };
     });
