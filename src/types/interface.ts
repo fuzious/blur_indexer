@@ -15,6 +15,9 @@ export type Lien = {
     floorPrice: string;
     apy: string;
     status: string;
+    name: string;
+    imageURL: string;
+    tokenURI: string;
 }
 
 export type LienResponse = {

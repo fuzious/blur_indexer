@@ -9,6 +9,7 @@ import cron from "node-cron";
 import express from "express";
 import { ContractCallResults, Multicall } from "ethereum-multicall";
 import { ERC721 } from "./src/ABI/ERC721";
+import { fetchNFTData } from "./src/helpers";
 
 const app = express();
 const provider = new ethers.providers.JsonRpcProvider('https://mainnet.infura.io/v3/cc3e9d61dd4348d6956e0da87bef4d9b');
@@ -41,6 +42,7 @@ async function queryData() {
 
         // Now fetch liens with debts as it depends on the resolution of floorPrices and currentBlock
         let lienData = await fetchLiensWithDebts(floorPrices, currentBlock);
+
         let activeLiens = lienData.liens;
 
         // Fetch previous week currently owned debt
@@ -101,7 +103,10 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
                     ltv: ltv.toString(),
                     floorPrice: floorPrice.toString(), // debt/floorPrice*100
                     apy: apy,
-                    status: Number(lien.auctionStartBlock) == 0 ? "active" : "auction"
+                    status: Number(lien.auctionStartBlock) == 0 ? "active" : "auction",
+                    name: '',
+                    tokenURI: '',
+                    imageURL: ''
                 };
                 return extensibleLien;
             } catch (error) {
@@ -116,8 +121,29 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
         .filter((result): result is PromiseFulfilledResult<Lien> => result.status === 'fulfilled')
         .map(result => result.value);
     
+    const tokens = successfulLiens.map(lien => ({
+        collectionAddress: lien.collection,
+        tokenId: lien.tokenId
+    }));
+
+    // Fetch NFT metadata
+    const nftDataMap = await fetchNFTData(tokens, provider);
+
+    // Add NFT metadata to each lien
+    const liensWithNFTData = successfulLiens.map(lien => {
+        const nftKey = `${lien.collection}-${lien.tokenId}`;
+        const nftData = nftDataMap.get(nftKey);
+
+        return {
+            ...lien, // Spread existing lien data
+            tokenUri: nftData?.tokenURI ?? '',
+            imageUrl: nftData?.imageUrl ?? '',
+            name: nftData?.name ?? ''
+        };
+    });
+    
     return {
-        liens: successfulLiens,
+        liens: liensWithNFTData,
         totalAmount: totalAmount.toString() // Convert the total amount to string for return
     };
 }
@@ -163,7 +189,7 @@ async function scheduledQueryData() {
 cron.schedule('*/15 * * * * *', async() => {
     console.log('Running a task every 15 seconds');
     await scheduledQueryData();
-    console.log(allData);
+    console.log(JSON.stringify(allData));
 });
 
 // Your existing async function queryData() remains the same

@@ -19,7 +19,7 @@ async function fetchMetadata(uri: string): Promise<any> {
     }
 }
 
-async function fetchNFTData(tokens: TokenInfo[], provider: ethers.providers.Provider): Promise<Map<string, NFTData>> {
+export async function fetchNFTData(tokens: TokenInfo[], provider: ethers.providers.Provider): Promise<Map<string, NFTData>> {
     try {
         const multicall = new Multicall({ ethersProvider: provider });
         const contractCallContext = tokens.map(token => ({
@@ -32,14 +32,14 @@ async function fetchNFTData(tokens: TokenInfo[], provider: ethers.providers.Prov
             ]
         }));
         const results: ContractCallResults = await multicall.call(contractCallContext);
-        console.log('results')
-        console.log(results)
         const metadataFetchPromises = tokens.map(async (token, index) => {
             const result = results.results[`token-${token.collectionAddress}-${token.tokenId}`];
             const name = result.callsReturnContext.find(c => c.reference === 'nameCall')!.returnValues[0];
-            const tokenURI = result.callsReturnContext.find(c => c.reference === 'tokenURICall')!.returnValues[0];
+            let tokenURI = result.callsReturnContext.find(c => c.reference === 'tokenURICall')!.returnValues[0];
+            tokenURI = tokenURI.startsWith('ipfs://') ? `https://ipfs.io/ipfs/${tokenURI.slice(7)}` : tokenURI;
             const metadata = await fetchMetadata(tokenURI);
-            const imageUrl = metadata?.image ? metadata.image : '';
+            let imageUrl = metadata?.image ? metadata.image : '';
+            imageUrl = imageUrl.startsWith('ipfs://') ? `https://ipfs.io/ipfs/${imageUrl.slice(7)}` : imageUrl;
 
             return { key: `${token.collectionAddress}-${token.tokenId}`, data: { name, tokenURI, imageUrl } };
         });
@@ -48,7 +48,7 @@ async function fetchNFTData(tokens: TokenInfo[], provider: ethers.providers.Prov
         const nftDataMap = new Map<string, NFTData>();
 
         metadataResults.forEach(nft => nftDataMap.set(nft.key, nft.data));
-        console.log(nftDataMap)
+        // console.log(nftDataMap)
         return nftDataMap;
     }   catch(err) {
         console.log(err);
