@@ -186,8 +186,8 @@ async function scheduledQueryData() {
 }
 
 
-cron.schedule('*/30 * * * * *', async() => {
-    console.log('Running a task every 15 seconds');
+cron.schedule('* * * * *', async() => {
+    console.log('Running a task every minute');
     await scheduledQueryData();
     console.log(JSON.stringify(allData));
 });
