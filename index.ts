@@ -7,11 +7,13 @@ import fetch from "node-fetch";
 import { ERC20ABI } from "./src/ABI/ERC20";
 import cron from "node-cron";
 import express from "express";
-import { ContractCallResults, Multicall } from "ethereum-multicall";
-import { ERC721 } from "./src/ABI/ERC721";
 import { fetchNFTData } from "./src/helpers";
+import cors from 'cors';
 
 const app = express();
+app.use(cors({
+    origin: '*' // Allows all origins
+  }));
 const provider = new ethers.providers.JsonRpcProvider('https://mainnet.infura.io/v3/cc3e9d61dd4348d6956e0da87bef4d9b');
 const rpvault = new ethers.Contract(RP_VAULT_ADDRESS, RangeProtocolBlurVaultABI, provider);
 const blurPool = new ethers.Contract(BLUR_POOL_ADDRESS, ERC20ABI, provider);
