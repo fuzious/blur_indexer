@@ -190,8 +190,12 @@ async function scheduledQueryData() {
 
 cron.schedule('* * * * *', async() => {
     console.log('Running a task every minute');
-    await scheduledQueryData();
-    console.log(JSON.stringify(allData));
+    try {
+        await scheduledQueryData();
+        console.log(JSON.stringify(allData));
+    } catch (err) {
+        console.log('error',JSON.stringify(err));
+    }
 });
 
 // Your existing async function queryData() remains the same
