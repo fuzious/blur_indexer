@@ -194,7 +194,7 @@ cron.schedule('* * * * *', async() => {
         await scheduledQueryData();
         console.log(JSON.stringify(allData));
     } catch (err) {
-        console.log('error',JSON.stringify(err));
+        console.log('error$',JSON.stringify(err));
     }
 });
 
