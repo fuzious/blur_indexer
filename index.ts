@@ -7,7 +7,7 @@ import fetch from "node-fetch";
 import { ERC20ABI } from "./src/ABI/ERC20";
 import cron from "node-cron";
 import express from "express";
-import { fetchNFTData } from "./src/helpers";
+import { fetchNFTBalances, fetchNFTData } from "./src/helpers";
 import cors from 'cors';
 
 const app = express();
@@ -105,7 +105,7 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
                     ltv: ltv.toString(),
                     floorPrice: floorPrice.toString(), // debt/floorPrice*100
                     apy: apy,
-                    status: Number(lien.auctionStartBlock) == 0 ? "active" : "auction",
+                    status: Number(lien.auctionStartBlock) == 0 ? "active" : (Number(lien.auctionStartBlock) + Number(lien.auctionDuration) < currentBlock ? "possessed" : "auction"), // 0=>active, [c,c+auctioDuration]->auction, [c+auctioDuration, inf]->"nfts in possession" 
                     name: '',
                     tokenURI: '',
                     imageURL: ''
@@ -123,6 +123,36 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
         .filter((result): result is PromiseFulfilledResult<Lien> => result.status === 'fulfilled')
         .map(result => result.value);
     
+    const nftBalances = await fetchNFTBalances(provider); // Make sure to define this function as shown earlier
+    for (const [collectionAddress, tokenIds] of Object.entries(nftBalances)) {
+        const floorPrice = floorPrices.get(collectionAddress.toLowerCase());
+    
+        tokenIds.forEach((tokenId: any) => {
+            const newLien: Lien = {
+                lender: '', // Assign appropriate values
+                borrower: '', // Assign appropriate values
+                collection: collectionAddress,
+                tokenId: tokenId,
+                amount: '', // Assign if applicable
+                startTime: 0, // Assign if applicable
+                rate: '', // Assign if applicable
+                auctionStartBlock: '', // Assign if applicable
+                auctionDuration: '', // Assign if applicable
+                debt: '', // Set to empty or a specific value if required
+                ltv: floorPrice ? ethers.BigNumber.from('0').mul(100).div(floorPrice).toString() : '0', // Assuming balance is not available here
+                floorPrice: floorPrice ? floorPrice.toString() : '0',
+                apy: '', // Set to empty or calculate if applicable
+                status: 'possessed',
+                name: '', // Assign if applicable
+                tokenURI: '', // Assign if applicable
+                imageURL: '' // Assign if applicable
+            };
+    
+            successfulLiens.push(newLien);
+        });
+    }
+    
+        
     const tokens = successfulLiens.map(lien => ({
         collectionAddress: lien.collection,
         tokenId: lien.tokenId

@@ -3,6 +3,8 @@ import { NFTData, TokenInfo } from "./types/interface";
 import { ContractCallResults, Multicall } from "ethereum-multicall";
 import { ERC721 } from "./ABI/ERC721";
 import fetch from "node-fetch";
+import { RP_VAULT_ADDRESS, TOKEN_TO_PRICE_FEED, nftCollection } from "./constants";
+import { Contract, Provider } from "ethers-multicall";
 
 async function fetchMetadata(uri: string): Promise<any> {
     // Convert IPFS links to HTTP URLs (if necessary)
@@ -54,4 +56,33 @@ export async function fetchNFTData(tokens: TokenInfo[], provider: ethers.provide
         console.log(err);
         return new Map();
     }
+}
+
+export async function fetchNFTBalances(provider: ethers.providers.Provider) {
+    const ethcallProvider = new Provider(provider, 1);
+    let calls = [];
+    for (const nftAddress of nftCollection) {
+        const nftContract = new Contract(nftAddress, ERC721);
+
+        // First, get the balance (number of NFTs owned)
+        calls.push(nftContract.balanceOf(RP_VAULT_ADDRESS));
+    }
+    const balances = await ethcallProvider.all(calls);
+
+    let nftTokenIDs: {[key: string]: string[]} = {};
+    for (let i = 0; i < balances.length; i++) {
+        const nftAddress = nftCollection[i];
+        const balance = balances[i].toNumber();
+        const nftContract = new Contract(nftAddress, ERC721);
+
+        let tokenIDCalls = [];
+        for (let j = 0; j < balance; j++) {
+            tokenIDCalls.push(nftContract.tokenOfOwnerByIndex(RP_VAULT_ADDRESS, j));
+        }
+
+        const tokenIDs = await ethcallProvider.all(tokenIDCalls);
+        nftTokenIDs[nftAddress] = tokenIDs.map(id => id.toString());
+    }
+
+    return nftTokenIDs;
 }
