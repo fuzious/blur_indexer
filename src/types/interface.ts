@@ -25,7 +25,8 @@ export type LienResponse = {
     netAPY: string,
     tvl: string,
     passiveBalance: string,
-    activeBalance: string
+    activeBalance: string,
+    nftsPossessedBalance: string
 }
 
 export interface TokenInfo {

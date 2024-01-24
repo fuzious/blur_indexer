@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { NFTData, TokenInfo } from "./types/interface";
+import { Lien, NFTData, TokenInfo } from "./types/interface";
 import { ContractCallResults, Multicall } from "ethereum-multicall";
 import { ERC721 } from "./ABI/ERC721";
 import fetch from "node-fetch";
@@ -85,4 +85,12 @@ export async function fetchNFTBalances(provider: ethers.providers.Provider) {
     }
 
     return nftTokenIDs;
+}
+
+export function sumFloorPrice(liens: Lien[]) {
+    let sum = ethers.BigNumber.from(0);
+    for (let lien of liens) {
+        sum = sum.add(ethers.BigNumber.from(lien.floorPrice));
+    }
+    return sum.toString();
 }

@@ -7,7 +7,7 @@ import fetch from "node-fetch";
 import { ERC20ABI } from "./src/ABI/ERC20";
 import cron from "node-cron";
 import express from "express";
-import { fetchNFTBalances, fetchNFTData } from "./src/helpers";
+import { fetchNFTBalances, fetchNFTData, sumFloorPrice } from "./src/helpers";
 import cors from 'cors';
 
 const app = express();
@@ -23,7 +23,8 @@ let allData: LienResponse = {
     netAPY: "",
     tvl: "",
     passiveBalance: "",
-    activeBalance: ""
+    activeBalance: "",
+    nftsPossessedBalance: ""
 };
 
 async function queryData() {
@@ -32,7 +33,7 @@ async function queryData() {
         let currentBlockPromise = provider.getBlockNumber();
         let floorPricesPromise = getFloorPrices();
         let blurPoolBalancePromise = blurPool.balanceOf(RP_VAULT_ADDRESS); // passive Balance
-        let totalCurrentlyOwnedDebtPromise = rpvault.getCurrentlyOwnedDebt(); // active balance
+        let totalCurrentlyOwnedDebtPromise = rpvault.getUnderlyingBalance(); // active balance
 
         // Wait for all the independent promises to resolve
         let [currentBlock, floorPrices, blurPoolBalance, totalCurrentlyOwnedDebt] = await Promise.all([
@@ -48,13 +49,14 @@ async function queryData() {
         let activeLiens = lienData.liens;
 
         // Fetch previous week currently owned debt
-        let previousWeekCurrentlyOwnedDebt = await rpvault.getCurrentlyOwnedDebt({blockTag: currentBlock - 46523});
+        let previousWeekCurrentlyOwnedDebt = await rpvault.getUnderlyingBalance({blockTag: currentBlock - 46523});
 
         // Calculations
         let netAPY = (totalCurrentlyOwnedDebt.sub(previousWeekCurrentlyOwnedDebt)).mul(5200).div(lienData.totalAmount);
         let tvl = (blurPoolBalance.add(totalCurrentlyOwnedDebt)).mul(floorPrices.get(ethers.constants.AddressZero)).div(ethers.utils.parseEther("1").mul(ethers.BigNumber.from("100000000")));
 
         // Updating allData object
+        allData.nftsPossessedBalance = sumFloorPrice(activeLiens);
         allData.activeBalance = totalCurrentlyOwnedDebt.toString();
         allData.activeLiens = activeLiens;
         allData.tvl = tvl.toString();
