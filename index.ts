@@ -7,7 +7,7 @@ import fetch from "node-fetch";
 import { ERC20ABI } from "./src/ABI/ERC20";
 import cron from "node-cron";
 import express from "express";
-import { fetchNFTBalances, fetchNFTData, sumFloorPrice } from "./src/helpers";
+import { fetchNFTBalances, fetchNFTData, sumFloorPriceOfPossessedLiens } from "./src/helpers";
 import cors from 'cors';
 
 const app = express();
@@ -56,7 +56,7 @@ async function queryData() {
         let tvl = (blurPoolBalance.add(totalCurrentlyOwnedDebt)).mul(floorPrices.get(ethers.constants.AddressZero)).div(ethers.utils.parseEther("1").mul(ethers.BigNumber.from("100000000")));
 
         // Updating allData object
-        allData.nftsPossessedBalance = sumFloorPrice(activeLiens);
+        allData.nftsPossessedBalance = sumFloorPriceOfPossessedLiens(activeLiens);
         allData.activeBalance = totalCurrentlyOwnedDebt.toString();
         allData.activeLiens = activeLiens;
         allData.tvl = tvl.toString();

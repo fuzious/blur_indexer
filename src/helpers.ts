@@ -87,10 +87,12 @@ export async function fetchNFTBalances(provider: ethers.providers.Provider) {
     return nftTokenIDs;
 }
 
-export function sumFloorPrice(liens: Lien[]) {
+export function sumFloorPriceOfPossessedLiens(liens: Lien[]) {
     let sum = ethers.BigNumber.from(0);
     for (let lien of liens) {
-        sum = sum.add(ethers.BigNumber.from(lien.floorPrice));
+        if (lien.status === "possessed") {
+            sum = sum.add(ethers.BigNumber.from(lien.floorPrice));
+        }
     }
     return sum.toString();
 }
