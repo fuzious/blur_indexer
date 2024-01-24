@@ -7,7 +7,7 @@ import fetch from "node-fetch";
 import { ERC20ABI } from "./src/ABI/ERC20";
 import cron from "node-cron";
 import express from "express";
-import { fetchNFTBalances, fetchNFTData, sumFloorPriceOfPossessedLiens } from "./src/helpers";
+import { fetchNFTBalances, fetchNFTData, sumFloorPriceByTag } from "./src/helpers";
 import cors from 'cors';
 
 const app = express();
@@ -56,8 +56,8 @@ async function queryData() {
         let tvl = (blurPoolBalance.add(totalCurrentlyOwnedDebt)).mul(floorPrices.get(ethers.constants.AddressZero)).div(ethers.utils.parseEther("1").mul(ethers.BigNumber.from("100000000")));
 
         // Updating allData object
-        allData.nftsPossessedBalance = sumFloorPriceOfPossessedLiens(activeLiens);
-        allData.activeBalance = totalCurrentlyOwnedDebt.toString();
+        allData.nftsPossessedBalance = sumFloorPriceByTag(activeLiens, 'possessed');
+        allData.activeBalance = (ethers.BigNumber.from(totalCurrentlyOwnedDebt).sub(lienData.totalPossessedNotUnseized)).toString();
         allData.activeLiens = activeLiens;
         allData.tvl = tvl.toString();
         allData.passiveBalance = blurPoolBalance.toString();
@@ -68,10 +68,11 @@ async function queryData() {
 }
 
 
-async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBlock: number): Promise<{liens: Lien[], totalAmount: string}> {
+async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBlock: number): Promise<{liens: Lien[], totalPossessedNotUnseized: string, totalAmount: string}> {
     const toIndex = await rpvault.liensCount();
     const liensData: [Lien, ethers.BigNumber][] = await rpvault.getLiensByIndex(0, toIndex);
     let totalAmount = ethers.BigNumber.from(0); // Initialize the total amount
+    let totalPossessedNotUnseized = ethers.BigNumber.from(0);
 
     const settledPromises = await Promise.allSettled(
         liensData.map(async ([lien, lienId]) => {
@@ -112,6 +113,9 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
                     tokenURI: '',
                     imageURL: ''
                 };
+                if (extensibleLien.status == "possessed") {
+                    totalPossessedNotUnseized = totalPossessedNotUnseized.add(extensibleLien.floorPrice);
+                }
                 return extensibleLien;
             } catch (error) {
                 // console.log(error);
@@ -178,6 +182,7 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
     
     return {
         liens: liensWithNFTData,
+        totalPossessedNotUnseized: totalPossessedNotUnseized.toString(),
         totalAmount: totalAmount.toString() // Convert the total amount to string for return
     };
 }
