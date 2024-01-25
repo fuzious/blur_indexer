@@ -1,7 +1,7 @@
 import { BigNumber, ethers } from "ethers";
 import { ETHPriceFeedABI } from "./src/ABI/ETHPriceFeedABI";
 import { RangeProtocolBlurVaultABI } from "./src/ABI/RangeProtocolBlurVaultABI";
-import { TOKEN_TO_PRICE_FEED, RP_VAULT_ADDRESS, BLUR_POOL_ADDRESS } from "./src/constants";
+import { TOKEN_TO_PRICE_FEED, RP_VAULT_ADDRESS, BLUR_POOL_ADDRESS, TOKEN_TO_OPENSEA_NAME } from "./src/constants";
 import { Lien, LienResponse, NFTData, TokenInfo } from "./src/types/interface";
 import fetch from "node-fetch";
 import { ERC20ABI } from "./src/ABI/ERC20";
@@ -187,27 +187,49 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
     };
 }
 
-async function getFloorPrices(): Promise<Map<string, ethers.BigNumber>> {
-    let promises: Promise<void>[] = [];
-    let floorPrices: Map<string, ethers.BigNumber> = new Map<string, ethers.BigNumber>();
-  
-    for (const [nftAddress, priceFeedAddress] of Object.entries(TOKEN_TO_PRICE_FEED)) {
-      if (priceFeedAddress) {
-        // Create a contract instance
-        const contract = new ethers.Contract(priceFeedAddress, ETHPriceFeedABI, provider);
-  
-        // Push the async operation into the promises array
-        promises.push(
-          contract.latestAnswer().then((floorPrice: { div: (arg0: BigNumber) => any; }) => {
-            // const adjustedFloorPrice = floorPrice.div(ethers.BigNumber.from("1000000"));
-            floorPrices.set(nftAddress, ethers.BigNumber.from(floorPrice));
-          }).catch((error: any) => {
-            console.error(`Error fetching price for ${nftAddress}:`, error);
-          })
-        );
-      }
+async function getFloorPrices() {
+    let promises = [];
+    let floorPrices = new Map();
+
+    for (const [nftAddress, name] of Object.entries(TOKEN_TO_OPENSEA_NAME)) {
+        if (nftAddress == ethers.constants.AddressZero) {
+            // Chainlink Price Feed
+            const contract = new ethers.Contract(name, ETHPriceFeedABI, provider);
+            promises.push(
+                contract.latestAnswer().then((floorPrice: any) => {
+                    floorPrices.set(nftAddress, ethers.BigNumber.from(floorPrice));
+                }).catch((error: any) => {
+                    console.error(`Error fetching price for ${nftAddress} from Chainlink:`, error);
+                })
+            );
+        } else {
+            // OpenSea API
+            const url = `https://api.opensea.io/api/v2/listings/collection/${name}/best`;
+            promises.push(
+                fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'x-api-key': 'ffd4c3ffe6e24552b66c588e14334119' // Replace with your OpenSea API Key
+                    }
+                }).then((response) => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                }).then((data) => {
+                    if (data && data.listings && data.listings.length > 0) {
+                        const priceInfo = data.listings[0].price.current;
+                        // const priceInEther = ethers.utils.formatEther(priceInfo.value);
+                        floorPrices.set(nftAddress, priceInfo.value);
+                    }
+                }).catch((error) => {
+                    console.error(`Error fetching price for ${nftAddress} from OpenSea:`, error);
+                })
+            );
+        }
     }
-  
+
     await Promise.all(promises);
     return floorPrices;
 }

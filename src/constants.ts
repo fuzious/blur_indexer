@@ -18,3 +18,14 @@ export const nftCollection = [
     "0x306b1ea3ecdf94aB739F1910bbda052Ed4A9f949",
     "0xBd3531dA5CF5857e7CfAA92426877b022e612cf8"
 ]
+
+export const TOKEN_TO_OPENSEA_NAME: { [key: string]: string } = {
+    "0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d": "boredapeyachtclub",
+    "0x60e4d786628fea6478f785a6d7e704777c86a7c6": "mutant-ape-yacht-club",
+    "0x49cf6f5d44e70224e2e23fdcdd2c053f30ada28b": "clonex",
+    "0xed5af388653567af2f388e6224dc7c4b3241c544": "azuki",
+    "0x306b1ea3ecdf94ab739f1910bbda052ed4a9f949": "beanzofficial",
+    "0xbd3531da5cf5857e7cfaa92426877b022e612cf8": "pudgypenguins",
+    "0x0000000000000000000000000000000000000000": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419"
+};
+ 
