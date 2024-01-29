@@ -96,3 +96,18 @@ export function sumFloorPriceByTag(liens: Lien[], tag: string) {
     }
     return sum.toString();
 }
+
+export function calculateNetAPY(liensWithNFTData: Lien[]): number {
+    let totalAPY = 0;
+    let apyCount = 0;
+
+    liensWithNFTData.forEach(lien => {
+        const apyValue = parseFloat(lien.apy);
+        if (!isNaN(apyValue)) {
+            totalAPY += apyValue;
+            apyCount++;
+        }
+    });
+
+    return apyCount > 0 ? totalAPY / apyCount : 0;
+}

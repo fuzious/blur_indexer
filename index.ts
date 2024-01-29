@@ -7,7 +7,7 @@ import fetch from "node-fetch";
 import { ERC20ABI } from "./src/ABI/ERC20";
 import cron from "node-cron";
 import express from "express";
-import { fetchNFTBalances, fetchNFTData, sumFloorPriceByTag } from "./src/helpers";
+import { calculateNetAPY, fetchNFTBalances, fetchNFTData, sumFloorPriceByTag } from "./src/helpers";
 import cors from 'cors';
 
 const app = express();
@@ -50,11 +50,14 @@ async function queryData() {
 
         // Fetch previous week currently owned debt
         let previousWeekCurrentlyOwnedDebt = await rpvault.getUnderlyingBalance({blockTag: currentBlock - 46523});
+        /*
 
+        TODO: REVISIT THIS APY CALCULATION
+        */
+        let netAPY = lienData.netAPY;
         // Calculations
-        let netAPY = (totalCurrentlyOwnedDebt.sub(previousWeekCurrentlyOwnedDebt)).mul(5200).div(lienData.totalAmount);
+        // let netAPY = (totalCurrentlyOwnedDebt.sub(previousWeekCurrentlyOwnedDebt)).mul(5200).div(lienData.totalAmount);
         let tvl = (blurPoolBalance.add(totalCurrentlyOwnedDebt)).mul(floorPrices.get(ethers.constants.AddressZero)).div(ethers.utils.parseEther("1").mul(ethers.BigNumber.from("100000000")));
-
         // Updating allData object
         allData.nftsPossessedBalance = sumFloorPriceByTag(activeLiens, 'possessed');
         allData.activeBalance = (ethers.BigNumber.from(totalCurrentlyOwnedDebt).sub(lienData.totalPossessedNotUnseized)).toString();
@@ -68,7 +71,7 @@ async function queryData() {
 }
 
 
-async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBlock: number): Promise<{liens: Lien[], totalPossessedNotUnseized: string, totalAmount: string}> {
+async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBlock: number): Promise<{liens: Lien[], totalPossessedNotUnseized: string, netAPY: number}> {
     const toIndex = await rpvault.liensCount();
     const liensData: [Lien, ethers.BigNumber][] = await rpvault.getLiensByIndex(0, toIndex);
     let totalAmount = ethers.BigNumber.from(0); // Initialize the total amount
@@ -88,7 +91,7 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
                     const firstDebt = await rpvault.getCurrentDebtByLien(lien, lienId, { blockTag: (currentBlock-46523) }); // 1 week back debt
                     apy = (((ethers.BigNumber.from(currentDebt).sub(ethers.BigNumber.from(firstDebt)))).mul(5200).div(lien.amount)).toString();
                 }
-                totalAmount = totalAmount.add(ethers.BigNumber.from(lien.amount));
+                // totalAmount = totalAmount.add(ethers.BigNumber.from(lien.amount));
 
                 const floorPrice = floorPrices.get(lien.collection.toLowerCase())!;
                 const ltv = ethers.BigNumber.from(currentDebt).mul(100).div(floorPrice);
@@ -113,9 +116,6 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
                     tokenURI: '',
                     imageURL: ''
                 };
-                if (extensibleLien.status == "possessed") {
-                    totalPossessedNotUnseized = totalPossessedNotUnseized.add(extensibleLien.floorPrice);
-                }
                 return extensibleLien;
             } catch (error) {
                 // console.log(error);
@@ -179,11 +179,12 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
             name: nftData?.name ?? ''
         };
     });
-    
+    let netAPY = calculateNetAPY(liensWithNFTData);
     return {
         liens: liensWithNFTData,
         totalPossessedNotUnseized: totalPossessedNotUnseized.toString(),
-        totalAmount: totalAmount.toString() // Convert the total amount to string for return
+        netAPY: netAPY
+        // totalAmount: totalAmount.toString() // Convert the total amount to string for return
     };
 }
 
@@ -247,7 +248,7 @@ async function scheduledQueryData() {
 }
 
 
-cron.schedule('* * * * *', async() => {
+cron.schedule('* * * * * *', async() => {
     console.log('Running a task every minute');
     try {
         await scheduledQueryData();
