@@ -76,7 +76,7 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
     const liensData: [Lien, ethers.BigNumber][] = await rpvault.getLiensByIndex(0, toIndex);
     let totalAmount = ethers.BigNumber.from(0); // Initialize the total amount
     let totalPossessedNotUnseized = ethers.BigNumber.from(0);
-
+    console.log('liensdata',liensData);
     const settledPromises = await Promise.allSettled(
         liensData.map(async ([lien, lienId]) => {
             try {
@@ -248,7 +248,7 @@ async function scheduledQueryData() {
 }
 
 
-cron.schedule('* * * * * *', async() => {
+cron.schedule('* * * * *', async() => {
     console.log('Running a task every minute');
     try {
         await scheduledQueryData();
