@@ -34,13 +34,14 @@ async function queryData() {
         let floorPricesPromise = getFloorPrices();
         let blurPoolBalancePromise = blurPool.balanceOf(RP_VAULT_ADDRESS); // passive Balance
         let totalCurrentlyOwnedDebtPromise = rpvault.getCurrentlyOwnedDebt(); // active balance
-
+        let underlyingBalancePromise = await rpvault.getUnderlyingBalance();
         // Wait for all the independent promises to resolve
-        let [currentBlock, floorPrices, blurPoolBalance, totalCurrentlyOwnedDebt] = await Promise.all([
+        let [currentBlock, floorPrices, blurPoolBalance, totalCurrentlyOwnedDebt, underlyingBalance] = await Promise.all([
             currentBlockPromise,
             floorPricesPromise,
             blurPoolBalancePromise,
-            totalCurrentlyOwnedDebtPromise
+            totalCurrentlyOwnedDebtPromise,
+            underlyingBalancePromise
         ]);
 
         // Now fetch liens with debts as it depends on the resolution of floorPrices and currentBlock
@@ -57,7 +58,7 @@ async function queryData() {
         let netAPY = lienData.netAPY;
         // Calculations
         // let netAPY = (totalCurrentlyOwnedDebt.sub(previousWeekCurrentlyOwnedDebt)).mul(5200).div(lienData.totalAmount);
-        let tvl = (blurPoolBalance.add(totalCurrentlyOwnedDebt)).mul(floorPrices.get(ethers.constants.AddressZero)).div(ethers.utils.parseEther("1").mul(ethers.BigNumber.from("100000000")));
+        let tvl = (underlyingBalance).mul(floorPrices.get(ethers.constants.AddressZero)).div(ethers.utils.parseEther("1").mul(ethers.BigNumber.from("100000000")));
         // Updating allData object
         allData.nftsPossessedBalance = sumFloorPriceByTag(activeLiens, 'possessed');
         allData.activeBalance = (ethers.BigNumber.from(totalCurrentlyOwnedDebt).sub(lienData.totalPossessedNotUnseized)).toString();
