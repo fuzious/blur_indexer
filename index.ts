@@ -14,7 +14,7 @@ const app = express();
 app.use(cors({
     origin: '*' // Allows all origins
   }));
-const provider = new ethers.providers.JsonRpcProvider('https://mainnet.infura.io/v3/cc3e9d61dd4348d6956e0da87bef4d9b');
+const provider = new ethers.providers.JsonRpcProvider('https://eth-mainnet.g.alchemy.com/v2/DHLfTiMOWjuCKyY4bqu6OZ9Kz2coX5LG');
 const rpvault = new ethers.Contract(RP_VAULT_ADDRESS, RangeProtocolBlurVaultABI, provider);
 const blurPool = new ethers.Contract(BLUR_POOL_ADDRESS, ERC20ABI, provider);
 
@@ -33,7 +33,7 @@ async function queryData() {
         let currentBlockPromise = provider.getBlockNumber();
         let floorPricesPromise = getFloorPrices();
         let blurPoolBalancePromise = blurPool.balanceOf(RP_VAULT_ADDRESS); // passive Balance
-        let totalCurrentlyOwnedDebtPromise = rpvault.getUnderlyingBalance(); // active balance
+        let totalCurrentlyOwnedDebtPromise = rpvault.getCurrentlyOwnedDebt(); // active balance
 
         // Wait for all the independent promises to resolve
         let [currentBlock, floorPrices, blurPoolBalance, totalCurrentlyOwnedDebt] = await Promise.all([
@@ -49,7 +49,7 @@ async function queryData() {
         let activeLiens = lienData.liens;
 
         // Fetch previous week currently owned debt
-        let previousWeekCurrentlyOwnedDebt = await rpvault.getUnderlyingBalance({blockTag: currentBlock - 46523});
+        // let previousWeekCurrentlyOwnedDebt = await rpvault.getUnderlyingBalance({blockTag: currentBlock - 46523});
         /*
 
         TODO: REVISIT THIS APY CALCULATION
@@ -76,7 +76,6 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
     const liensData: [Lien, ethers.BigNumber][] = await rpvault.getLiensByIndex(0, toIndex);
     let totalAmount = ethers.BigNumber.from(0); // Initialize the total amount
     let totalPossessedNotUnseized = ethers.BigNumber.from(0);
-    console.log('liensdata',liensData);
     const settledPromises = await Promise.allSettled(
         liensData.map(async ([lien, lienId]) => {
             try {
@@ -128,7 +127,7 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
     const successfulLiens = settledPromises
         .filter((result): result is PromiseFulfilledResult<Lien> => result.status === 'fulfilled')
         .map(result => result.value);
-    
+
     const nftBalances = await fetchNFTBalances(provider); // Make sure to define this function as shown earlier
     for (const [collectionAddress, tokenIds] of Object.entries(nftBalances)) {
         const floorPrice = floorPrices.get(collectionAddress.toLowerCase());
@@ -198,7 +197,7 @@ async function getFloorPrices() {
             const contract = new ethers.Contract(name, ETHPriceFeedABI, provider);
             promises.push(
                 contract.latestAnswer().then((floorPrice: any) => {
-                    floorPrices.set(nftAddress, ethers.BigNumber.from(floorPrice));
+                    floorPrices.set(nftAddress, ethers.BigNumber.from(floorPrice).toString());
                 }).catch((error: any) => {
                     console.error(`Error fetching price for ${nftAddress} from Chainlink:`, error);
                 })
@@ -211,7 +210,7 @@ async function getFloorPrices() {
                     method: 'GET',
                     headers: {
                         'Accept': 'application/json',
-                        'x-api-key': 'ffd4c3ffe6e24552b66c588e14334119' // Replace with your OpenSea API Key
+                        'x-api-key': 'c124e29f53824e6a92a74a67eb137c72' // Replace with your OpenSea API Key
                     }
                 }).then((response) => {
                     if (!response.ok) {
@@ -230,7 +229,6 @@ async function getFloorPrices() {
             );
         }
     }
-
     await Promise.all(promises);
     return floorPrices;
 }
