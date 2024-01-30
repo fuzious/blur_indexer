@@ -14,7 +14,7 @@ const app = express();
 app.use(cors({
     origin: '*' // Allows all origins
   }));
-const provider = new ethers.providers.JsonRpcProvider('https://eth-mainnet.g.alchemy.com/v2/DHLfTiMOWjuCKyY4bqu6OZ9Kz2coX5LG');
+const provider = new ethers.providers.JsonRpcProvider('https://mainnet.infura.io/v3/cc3e9d61dd4348d6956e0da87bef4d9b');
 const rpvault = new ethers.Contract(RP_VAULT_ADDRESS, RangeProtocolBlurVaultABI, provider);
 const blurPool = new ethers.Contract(BLUR_POOL_ADDRESS, ERC20ABI, provider);
 
@@ -77,15 +77,34 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
     const liensData: [Lien, ethers.BigNumber][] = await rpvault.getLiensByIndex(0, toIndex);
     let totalAmount = ethers.BigNumber.from(0); // Initialize the total amount
     let totalPossessedNotUnseized = ethers.BigNumber.from(0);
+    // console.log('liensdata',JSON.stringify(liensData));
     const settledPromises = await Promise.allSettled(
         liensData.map(async ([lien, lienId]) => {
             try {
-                const currentDebt = await rpvault.getCurrentDebtByLien(lien, lienId);
-                const currentTime = new Date().getTime();
+                let convertedLien = {
+                    lender: lien.lender, // Assuming lender is an address (string)
+                    borrower: lien.borrower, // Assuming borrower is an address (string)
+                    collection: lien.collection, // Assuming collection is an address (string)
+                    tokenId: ethers.BigNumber.from(lien.tokenId).toString(), // Convert to BigNumber, then to string
+                    amount: ethers.BigNumber.from(lien.amount).toString(), // Convert to BigNumber, then to string
+                    startTime: ethers.BigNumber.from(lien.startTime).toString(), // Convert to BigNumber, then to string
+                    rate: ethers.BigNumber.from(lien.rate).toString(), // Convert to BigNumber, then to string
+                    auctionStartBlock: ethers.BigNumber.from(lien.auctionStartBlock).toString(), // Convert to BigNumber, then to string
+                    auctionDuration: ethers.BigNumber.from(lien.auctionDuration).toString() // Convert to BigNumber, then to string
+                };
+        
+                // Convert lienId to BigNumber and then to string
+                let convertedLienId = ethers.BigNumber.from(lienId).toString();
+                // console.log(JSON.stringify(convertedLien),convertedLienId);
+
+                const currentDebt = await rpvault.getCurrentDebtByLien(convertedLien, convertedLienId, { gasPrice: ethers.utils.parseUnits('100', 'gwei'), gasLimit: ethers.BigNumber.from('10000000') });
+                // console.log(lienId.toString(),currentDebt.toString(), convertedLien.startTime.toString())
+                const currentTime = Math.floor(new Date().getTime()/1000);
                 let apy: string;
-                if (lien.startTime >= (currentTime - 24*7*3600)) {
-                    let closestBlock = await fetchClosestBlock(lien.startTime);
-                    const firstDebt = await rpvault.getCurrentDebtByLien(lien, lienId, { blockTag: closestBlock });
+                if ((lien.startTime) >= (currentTime - 24*7*3600)) {
+                    let closestBlock = await fetchClosestBlock(Number(lien.startTime));                   
+                    const firstDebt = await rpvault.getCurrentDebtByLien(convertedLien, convertedLienId, { blockTag: closestBlock+1 });
+                    
                     apy = (((ethers.BigNumber.from(currentDebt).sub(ethers.BigNumber.from(firstDebt))).mul(3153600000).div(currentTime-lien.startTime).div(lien.amount))).toString();
                 } else {
                     const firstDebt = await rpvault.getCurrentDebtByLien(lien, lienId, { blockTag: (currentBlock-46523) }); // 1 week back debt
@@ -118,7 +137,7 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
                 };
                 return extensibleLien;
             } catch (error) {
-                // console.log(error);
+                console.log(JSON.stringify(error));
                 // Error handling or logging can be done here
                 throw error;
             }
@@ -128,7 +147,7 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
     const successfulLiens = settledPromises
         .filter((result): result is PromiseFulfilledResult<Lien> => result.status === 'fulfilled')
         .map(result => result.value);
-
+    // console.log(JSON.stringify(successfulLiens))
     const nftBalances = await fetchNFTBalances(provider); // Make sure to define this function as shown earlier
     for (const [collectionAddress, tokenIds] of Object.entries(nftBalances)) {
         const floorPrice = floorPrices.get(collectionAddress.toLowerCase());
