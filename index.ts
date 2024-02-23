@@ -100,7 +100,7 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
                 let convertedLienId = ethers.BigNumber.from(lienId).toString();
                 // console.log(JSON.stringify(convertedLien),convertedLienId);
                 // console.log('tst1',convertedLien, convertedLienId)
-                const currentDebt = await rpvault.getCurrentDebtByLien(convertedLien, convertedLienId, { blockTag: 19287007 });
+                const currentDebt = await rpvault.getCurrentDebtByLien(convertedLien, convertedLienId);
                 const currentTime = Math.floor(new Date().getTime()/1000);
                 // console.log()
                 let apy: string;
