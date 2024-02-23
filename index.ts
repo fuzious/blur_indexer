@@ -67,7 +67,7 @@ async function queryData() {
         allData.passiveBalance = blurPoolBalance.toString();
         allData.netAPY = netAPY.toString();
     } catch (error) {
-        console.error("Error querying data:", error);
+        // console.error("Error querying data:", error);
     }
 }
 
@@ -81,6 +81,9 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
     const settledPromises = await Promise.allSettled(
         liensData.map(async ([lien, lienId]) => {
             try {
+                // if (lienId.toString() != '142887'){
+                //     return;
+                // }
                 let convertedLien = {
                     lender: lien.lender, // Assuming lender is an address (string)
                     borrower: lien.borrower, // Assuming borrower is an address (string)
@@ -96,20 +99,29 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
                 // Convert lienId to BigNumber and then to string
                 let convertedLienId = ethers.BigNumber.from(lienId).toString();
                 // console.log(JSON.stringify(convertedLien),convertedLienId);
-
-                const currentDebt = await rpvault.getCurrentDebtByLien(convertedLien, convertedLienId, { gasPrice: ethers.utils.parseUnits('100', 'gwei'), gasLimit: ethers.BigNumber.from('10000000') });
-                // console.log(lienId.toString(),currentDebt.toString(), convertedLien.startTime.toString())
+                // console.log('tst1',convertedLien, convertedLienId)
+                const currentDebt = await rpvault.getCurrentDebtByLien(convertedLien, convertedLienId, { blockTag: 19287007 });
                 const currentTime = Math.floor(new Date().getTime()/1000);
+                // console.log()
                 let apy: string;
+                // console.log('tst2',lien.startTime.toString(), currentTime - 24*7*3600,(lien.startTime) >= (currentTime - 24*7*3600))
                 if ((lien.startTime) >= (currentTime - 24*7*3600)) {
                     let closestBlock = await fetchClosestBlock(Number(lien.startTime));                   
                     const firstDebt = await rpvault.getCurrentDebtByLien(convertedLien, convertedLienId, { blockTag: closestBlock+1 });
                     
                     apy = (((ethers.BigNumber.from(currentDebt).sub(ethers.BigNumber.from(firstDebt))).mul(3153600000).div(currentTime-lien.startTime).div(lien.amount))).toString();
                 } else {
-                    const firstDebt = await rpvault.getCurrentDebtByLien(lien, lienId, { blockTag: (currentBlock-46523) }); // 1 week back debt
+                    let firstDebt;
+                    try {
+                        firstDebt = await rpvault.getCurrentDebtByLien(lien, lienId, { blockTag: (currentBlock-46523) }); // 1 week back debt
+                    } catch {
+                        // console.log(lien)
+                        convertedLien.auctionStartBlock = '0';
+                        firstDebt = await rpvault.getCurrentDebtByLien(convertedLien, convertedLienId, { blockTag: (currentBlock-46523) }); // 1 week back debt
+                    }
                     apy = (((ethers.BigNumber.from(currentDebt).sub(ethers.BigNumber.from(firstDebt)))).mul(5200).div(lien.amount)).toString();
                 }
+                // console.log('this;',lienId.toString(),currentDebt.toString(), convertedLien.startTime.toString())
                 // totalAmount = totalAmount.add(ethers.BigNumber.from(lien.amount));
 
                 const floorPrice = floorPrices.get(lien.collection.toLowerCase())!;
@@ -135,9 +147,10 @@ async function fetchLiensWithDebts(floorPrices: Map<string,BigNumber>, currentBl
                     tokenURI: '',
                     imageURL: ''
                 };
+                // console.log(extensibleLien)
                 return extensibleLien;
             } catch (error) {
-                console.log(JSON.stringify(error));
+                // console.log((error));
                 // Error handling or logging can be done here
                 throw error;
             }
@@ -219,7 +232,7 @@ async function getFloorPrices() {
                 contract.latestAnswer().then((floorPrice: any) => {
                     floorPrices.set(nftAddress, ethers.BigNumber.from(floorPrice).toString());
                 }).catch((error: any) => {
-                    console.error(`Error fetching price for ${nftAddress} from Chainlink:`, error);
+                    // console.error(`Error fetching price for ${nftAddress} from Chainlink:`, error);
                 })
             );
         } else {
@@ -244,7 +257,7 @@ async function getFloorPrices() {
                         floorPrices.set(nftAddress, priceInfo.value);
                     }
                 }).catch((error) => {
-                    console.error(`Error fetching price for ${nftAddress} from OpenSea:`, error);
+                    // console.error(`Error fetching price for ${nftAddress} from OpenSea:`, error);
                 })
             );
         }
